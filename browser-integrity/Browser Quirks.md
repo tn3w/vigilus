@@ -860,3 +860,19 @@ const finalProof = await crypto.subtle.sign(
 4. NOT replaying old proofs
 
 **Result**: OAuth 2.0 level security without requiring user interaction.
+
+---
+
+Sources:
+[FingerprintJS](https://github.com/fingerprintjs/fingerprintjs),
+[FingerprintJS Audio Component](https://github.com/fingerprintjs/fingerprintjs/blob/master/src/components/audio.ts),
+[Fingerprint.js](https://github.com/cvzi/Fingerprint.js),
+[BrowserLeaks Canvas](https://browserleaks.com/canvas),
+[Ars Technica: How online tracking companies know most of what you do on the web](https://arstechnica.com/security/2013/10/how-online-tracking-companies-know-most-of-what-you-do-on-the-web/),
+[Stack Overflow: What does requestAnimationFrame call rate mean?](https://stackoverflow.com/questions/38649213/what-does-requestanimationframe-call-rate-mean),
+[BrowserLeaks WebGL](https://browserleaks.com/webgl),
+[MDN Web Docs: Performance API](https://developer.mozilla.org/en-US/docs/Web/API/Performance),
+[MDN Web Docs: Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API),
+[MDN Web Docs: WebRTC API](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API),
+[MDN Web Docs: Element.getBoundingClientRect](https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect),
+[MDN Web Docs: Navigator](https://developer.mozilla.org/en-US/docs/Web/API/Navigator),
