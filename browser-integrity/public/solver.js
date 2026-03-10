@@ -1,179 +1,199 @@
-const CANVAS_WIDTH = 280;
-const CANVAS_HEIGHT = 80;
-const AUDIO_SAMPLE_RATE = 44100;
-const AUDIO_SLICE_START = 4500;
-const AUDIO_SLICE_END = 5000;
+const UNICODE_CHARS = '\u0394\u2117\u221E\uFB01\uFB02';
 
 async function sha256(data) {
     const buffer = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-
     const hash = await crypto.subtle.digest('SHA-256', buffer);
-
     return Array.from(new Uint8Array(hash))
-        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
 }
 
-async function collectCanvasProof(nonce) {
+function hexToBytes(hex) {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
+// --- Stage Solvers ---
+
+async function solveCanvasText(params) {
+    const { width, height, seed } = params;
     const canvas = document.createElement('canvas');
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
-    const context = canvas.getContext('2d');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
 
-    const gradient = context.createLinearGradient(0, 0, CANVAS_WIDTH, 0);
-    gradient.addColorStop(0, `#${nonce.slice(0, 6)}`);
-    gradient.addColorStop(1, `#${nonce.slice(6, 12)}`);
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    const gradient = ctx.createLinearGradient(0, 0, width, 0);
+    gradient.addColorStop(0, `#${seed.slice(0, 6)}`);
+    gradient.addColorStop(1, `#${seed.slice(6, 12)}`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
 
-    context.font = '14px Arial';
-    context.textBaseline = 'alphabetic';
-    context.fillStyle = '#069';
-    context.fillText(`${nonce.slice(0, 16)}\u0394\u2117\u221E\uFB01\uFB02`, 2, 15);
+    ctx.font = '14px Arial';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#069';
+    ctx.fillText(`${seed.slice(0, 16)}${UNICODE_CHARS}`, 2, 15);
 
-    context.fillStyle = 'rgba(102, 204, 0, 0.7)';
-    context.fillText(`${nonce.slice(16, 32)}\u0394\u2117\u221E\uFB01\uFB02`, 4, 17);
+    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+    ctx.fillText(`${seed.slice(16, 32)}${UNICODE_CHARS}`, 4, 17);
 
-    const arcAngle = (parseInt(nonce.slice(0, 8), 16) % 628) / 100;
-    context.beginPath();
-    context.arc(140, 50, 25, 0, arcAngle);
-    context.strokeStyle = '#f60';
-    context.lineWidth = 2.5;
-    context.stroke();
+    const arcAngle = (parseInt(seed.slice(0, 8), 16) % 628) / 100;
+    ctx.beginPath();
+    ctx.arc(140, 50, 25, 0, arcAngle);
+    ctx.strokeStyle = '#f60';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
 
-    context.beginPath();
-    context.moveTo(10, 70);
-    context.bezierCurveTo(
-        parseInt(nonce.slice(8, 10), 16),
-        parseInt(nonce.slice(10, 12), 16) % CANVAS_HEIGHT,
-        CANVAS_WIDTH - parseInt(nonce.slice(12, 14), 16),
-        parseInt(nonce.slice(14, 16), 16) % CANVAS_HEIGHT,
+    ctx.beginPath();
+    ctx.moveTo(10, 70);
+    ctx.bezierCurveTo(
+        parseInt(seed.slice(8, 10), 16),
+        parseInt(seed.slice(10, 12), 16) % height,
+        width - parseInt(seed.slice(12, 14), 16),
+        parseInt(seed.slice(14, 16), 16) % height,
         270,
-        70
+        70,
     );
-    context.stroke();
+    ctx.stroke();
 
-    const imageData = context.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
+    const imageData = ctx.getImageData(0, 0, width, height);
     return sha256(imageData.data.buffer);
 }
 
-async function collectAudioProof(nonce) {
-    const AudioContextClass = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+async function solveAudio(params) {
+    const { frequency, sampleRate, sliceStart, sliceEnd, seed } = params;
+    const AudioCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
 
-    const context = new AudioContextClass(1, AUDIO_SAMPLE_RATE, AUDIO_SAMPLE_RATE);
+    if (!AudioCtx) {
+        return sha256(`no-audio:${seed}`);
+    }
 
-    const oscillator = context.createOscillator();
-    const compressor = context.createDynamicsCompressor();
+    const ctx = new AudioCtx(1, sampleRate, sampleRate);
+    const osc = ctx.createOscillator();
+    const comp = ctx.createDynamicsCompressor();
 
-    const frequency = 200 + (parseInt(nonce.slice(0, 4), 16) % 800);
-    oscillator.frequency.value = frequency;
-    oscillator.type = 'triangle';
+    osc.frequency.value = frequency;
+    osc.type = 'triangle';
+    comp.threshold.value = -50;
+    comp.knee.value = 40;
+    comp.ratio.value = 12;
+    comp.attack.value = 0;
+    comp.release.value = 0.25;
 
-    compressor.threshold.value = -50;
-    compressor.knee.value = 40;
-    compressor.ratio.value = 12;
-    compressor.attack.value = 0;
-    compressor.release.value = 0.25;
+    osc.connect(comp);
+    comp.connect(ctx.destination);
+    osc.start(0);
 
-    oscillator.connect(compressor);
-    compressor.connect(context.destination);
-    oscillator.start(0);
-
-    const renderedBuffer = await context.startRendering();
-    const channelData = renderedBuffer.getChannelData(0);
-    const slice = channelData.slice(AUDIO_SLICE_START, AUDIO_SLICE_END);
-
+    const rendered = await ctx.startRendering();
+    const slice = rendered.getChannelData(0).slice(sliceStart, sliceEnd);
     return sha256(slice.buffer);
 }
 
-function collectWebGLParams() {
+async function solveCanvasGeometry(params) {
+    const { width, height, seed } = params;
     const canvas = document.createElement('canvas');
-    const context = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
 
-    if (!context) return JSON.stringify({ unavailable: true });
+    ctx.fillStyle = `#${seed.slice(0, 6)}`;
+    ctx.fillRect(0, 0, width, height);
 
-    const debugExtension = context.getExtension('WEBGL_debug_renderer_info');
+    const numShapes = 3 + (parseInt(seed.slice(0, 2), 16) % 5);
+    for (let i = 0; i < numShapes; i++) {
+        const off = (i * 8) % (seed.length - 8);
+        const cx = parseInt(seed.slice(off, off + 2), 16) % width;
+        const cy = parseInt(seed.slice(off + 2, off + 4), 16) % height;
+        const r = 10 + (parseInt(seed.slice(off + 4, off + 6), 16) % 30);
+        const endAngle = (parseInt(seed.slice(off + 6, off + 8), 16) % 628) / 100;
 
-    const params = {
-        vendor: debugExtension
-            ? context.getParameter(debugExtension.UNMASKED_VENDOR_WEBGL)
-            : context.getParameter(context.VENDOR),
-        renderer: debugExtension
-            ? context.getParameter(debugExtension.UNMASKED_RENDERER_WEBGL)
-            : context.getParameter(context.RENDERER),
-        maxTextureSize: context.getParameter(context.MAX_TEXTURE_SIZE),
-        maxRenderbufferSize: context.getParameter(context.MAX_RENDERBUFFER_SIZE),
-        maxViewportDims: Array.from(context.getParameter(context.MAX_VIEWPORT_DIMS)),
-        maxVertexAttribs: context.getParameter(context.MAX_VERTEX_ATTRIBS),
-        maxVaryingVectors: context.getParameter(context.MAX_VARYING_VECTORS),
-        aliasedLineWidthRange: Array.from(context.getParameter(context.ALIASED_LINE_WIDTH_RANGE)),
-        aliasedPointSizeRange: Array.from(context.getParameter(context.ALIASED_POINT_SIZE_RANGE)),
-        extensionCount: context.getSupportedExtensions()?.length ?? 0,
-    };
-
-    context.getExtension('WEBGL_lose_context')?.loseContext();
-
-    return JSON.stringify(params);
-}
-
-function collectAPIFingerprint() {
-    const fingerprint = {
-        hasSubtleCrypto: !!crypto?.subtle,
-        hasCanvas: !!document.createElement('canvas').getContext('2d'),
-        hasAudioContext: !!(window.OfflineAudioContext || window.webkitOfflineAudioContext),
-        hasWebGL: !!document.createElement('canvas').getContext('webgl'),
-        hasWebRTC: !!window.RTCPeerConnection,
-        hasServiceWorker: 'serviceWorker' in navigator,
-        hasIndexedDB: !!window.indexedDB,
-        hardwareConcurrency: navigator.hardwareConcurrency ?? 0,
-        deviceMemory: navigator.deviceMemory ?? 0,
-        maxTouchPoints: navigator.maxTouchPoints ?? 0,
-        colorDepth: screen.colorDepth ?? 0,
-        pixelRatio: window.devicePixelRatio ?? 0,
-    };
-
-    return JSON.stringify(fingerprint);
-}
-
-export async function solveChallenge(challengeUrl = '/challenge', verifyUrl = '/verify') {
-    const challengeResponse = await fetch(challengeUrl);
-
-    if (!challengeResponse.ok) throw new Error('Failed to fetch challenge');
-
-    const { id, nonce } = await challengeResponse.json();
-
-    const [canvasHash, audioHash] = await Promise.all([
-        collectCanvasProof(nonce),
-        collectAudioProof(nonce),
-    ]);
-
-    const webglParams = collectWebGLParams();
-    const apiFingerprint = collectAPIFingerprint();
-
-    const proof = await sha256(
-        [nonce, canvasHash, audioHash, webglParams, apiFingerprint].join('|')
-    );
-
-    const verifyResponse = await fetch(verifyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            id,
-            signals: {
-                canvasHash,
-                audioHash,
-                webglParams,
-                apiFingerprint,
-            },
-            proof,
-        }),
-    });
-
-    if (!verifyResponse.ok) {
-        const error = await verifyResponse.json();
-        throw new Error(error.error || 'Verification failed');
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, endAngle);
+        ctx.fillStyle = `rgba(${parseInt(seed.slice(off, off + 2), 16)}, ${parseInt(seed.slice(off + 2, off + 4), 16)}, ${parseInt(seed.slice(off + 4, off + 6), 16)}, 0.6)`;
+        ctx.fill();
+        ctx.strokeStyle = `#${seed.slice(off, off + 6)}`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
     }
 
-    return verifyResponse.json();
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(seed.slice(0, 20), 5, height - 10);
+
+    const imageData = ctx.getImageData(0, 0, width, height);
+    return sha256(imageData.data.buffer);
+}
+
+// Deterministic pixel pattern — must produce the exact same hash as the
+// server's computePixelVerifyHash(). No canvas rendering involved; pure
+// integer math over the seed bytes.
+async function solvePixelVerify(params) {
+    const { width, height, seed } = params;
+    const seedBytes = hexToBytes(seed);
+    const si = seedBytes.length;
+    const data = new Uint8Array(width * height * 4);
+
+    for (let i = 0; i < width * height; i++) {
+        const x = i % width;
+        const y = Math.floor(i / width);
+        data[i * 4] = (seedBytes[x % si] ^ seedBytes[y % si]) & 0xff;
+        data[i * 4 + 1] = (seedBytes[(x + y) % si] * 3) & 0xff;
+        data[i * 4 + 2] = (seedBytes[Math.abs(x - y) % si] * 7) & 0xff;
+        data[i * 4 + 3] = 255;
+    }
+
+    return sha256(data.buffer);
+}
+
+// --- Stage Dispatcher ---
+
+async function solveStage(stage) {
+    switch (stage.type) {
+        case 'canvas_text':
+            return solveCanvasText(stage);
+        case 'audio':
+            return solveAudio(stage);
+        case 'canvas_geometry':
+            return solveCanvasGeometry(stage);
+        case 'pixel_verify':
+            return solvePixelVerify(stage);
+        default:
+            throw new Error(`Unknown stage: ${stage.type}`);
+    }
+}
+
+// --- Public API ---
+// Multi-round challenge: fetches stages from server one at a time,
+// solves each, and submits the hash before receiving the next stage.
+
+export async function solveChallenge({ baseUrl = '', onProgress = null } = {}) {
+    const initRes = await fetch(`${baseUrl}/challenge`, { method: 'POST' });
+    if (!initRes.ok) throw new Error('Failed to start challenge');
+
+    let { challengeId, totalStages, stage } = await initRes.json();
+
+    for (let i = 0; i < totalStages; i++) {
+        if (onProgress) onProgress(i + 1, totalStages);
+
+        const hash = await solveStage(stage);
+
+        const res = await fetch(`${baseUrl}/challenge/${challengeId}/solve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stageIndex: i, hash }),
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Stage failed');
+        }
+
+        const result = await res.json();
+        if (result.complete) return result;
+        stage = result.stage;
+    }
+
+    throw new Error('Challenge incomplete');
 }

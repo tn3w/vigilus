@@ -75,7 +75,7 @@
         <h1>Vigilus</h1>
         <p class="subtitle">Browser Integrity Challenge</p>
 
-        <div id="status" class="solving">Solving challenge&hellip;</div>
+        <div id="status" class="solving">Starting challenge&hellip;</div>
 
         <button id="protectedButton" disabled>Access Protected Resource</button>
 
@@ -91,7 +91,11 @@
 
             try {
                 const start = performance.now();
-                const result = await solveChallenge();
+                const result = await solveChallenge({
+                    onProgress(stage, total) {
+                        status.textContent = `Solving stage ${stage}/${total}\u2026`;
+                    },
+                });
                 const elapsed = (performance.now() - start).toFixed(0);
 
                 token = result.token;
