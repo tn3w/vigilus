@@ -158,8 +158,7 @@ app.post('/challenge/:id/solve', (req, res) => {
     if (typeof hash !== 'string' || !/^[0-9a-f]{64}$/.test(hash))
         return res.status(400).json({ error: 'Invalid hash' });
 
-    if (/^(.)\1+$/.test(hash))
-        return res.status(400).json({ error: 'Trivial hash' });
+    if (/^(.)\1+$/.test(hash)) return res.status(400).json({ error: 'Trivial hash' });
 
     // Server-verifiable stage: pixel_verify hash must match exactly
     if (challenge.stages[stageIndex] === 'pixel_verify') {
@@ -167,7 +166,7 @@ app.post('/challenge/:id/solve', (req, res) => {
             req.params.id,
             challenge.baseSeed,
             stageIndex,
-            challenge.stageHashes,
+            challenge.stageHashes
         );
         const expected = computePixelVerifyHash(seed);
         if (!timingSafeHexEqual(hash, expected)) {
@@ -193,7 +192,7 @@ app.post('/challenge/:id/solve', (req, res) => {
         req.params.id,
         challenge.baseSeed,
         challenge.currentStage,
-        challenge.stageHashes,
+        challenge.stageHashes
     );
     const nextType = challenge.stages[challenge.currentStage];
 

@@ -121,12 +121,12 @@ Each stage's parameters depend on ALL previous stages' results mixed with the se
 
 ## Stages
 
-| Stage             | What it computes                                          | Why it needs a browser                                         | Server can verify? |
-| ----------------- | --------------------------------------------------------- | -------------------------------------------------------------- | ------------------ |
-| `canvas_text`     | Text + gradients + arcs + bezier curves on Canvas 2D      | Font rasterization, anti-aliasing, subpixel rendering are GPU/OS-specific | Format only        |
-| `audio`           | Oscillator → compressor via OfflineAudioContext            | DSP pipeline produces browser-specific floating-point samples  | Format only        |
-| `canvas_geometry` | Arcs, fills, strokes with seed-derived parameters         | Anti-aliased shape rendering is engine-specific                | Format only        |
-| `pixel_verify`    | Deterministic integer math → SHA-256 (no rendering)       | Pure computation, identical on all platforms                    | **Exact hash**     |
+| Stage             | What it computes                                     | Why it needs a browser                                                    | Server can verify? |
+| ----------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- | ------------------ |
+| `canvas_text`     | Text + gradients + arcs + bezier curves on Canvas 2D | Font rasterization, anti-aliasing, subpixel rendering are GPU/OS-specific | Format only        |
+| `audio`           | Oscillator → compressor via OfflineAudioContext      | DSP pipeline produces browser-specific floating-point samples             | Format only        |
+| `canvas_geometry` | Arcs, fills, strokes with seed-derived parameters    | Anti-aliased shape rendering is engine-specific                           | Format only        |
+| `pixel_verify`    | Deterministic integer math → SHA-256 (no rendering)  | Pure computation, identical on all platforms                              | **Exact hash**     |
 
 ### The pixel_verify Stage
 
@@ -191,15 +191,15 @@ Signals are just deterministic functions of the nonce. Once you have the functio
 
 ### Approaches Considered and Rejected
 
-| Approach | Why rejected |
-| --- | --- |
-| **Proof of Work** (hash puzzle) | User requirement: not a PoW system. Also penalizes legitimate users on slow devices |
-| **Server-side rendering** (node-canvas) | Different rendering engine (Cairo vs Skia/Gecko) produces different hashes. Can't match browser output for verification |
-| **Zero-knowledge proofs** | Impractical complexity. Would need a ZK circuit for canvas rendering — doesn't exist |
-| **Steganography** (server embeds secrets in images) | Attacker can decode PNG data URLs without rendering. Browser color management is too inconsistent for reliable verification |
-| **DOM measurement challenges** (getBoundingClientRect) | Values vary with viewport, zoom, DPI. Too fragile for verification |
-| **WebGL shader computation** | Strong in theory but requires GPU; many privacy browsers disable WebGL |
-| **Single-round with better signals** | Fundamentally broken — any deterministic function of a nonce can be replayed without the original execution environment |
+| Approach                                               | Why rejected                                                                                                                |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| **Proof of Work** (hash puzzle)                        | User requirement: not a PoW system. Also penalizes legitimate users on slow devices                                         |
+| **Server-side rendering** (node-canvas)                | Different rendering engine (Cairo vs Skia/Gecko) produces different hashes. Can't match browser output for verification     |
+| **Zero-knowledge proofs**                              | Impractical complexity. Would need a ZK circuit for canvas rendering — doesn't exist                                        |
+| **Steganography** (server embeds secrets in images)    | Attacker can decode PNG data URLs without rendering. Browser color management is too inconsistent for reliable verification |
+| **DOM measurement challenges** (getBoundingClientRect) | Values vary with viewport, zoom, DPI. Too fragile for verification                                                          |
+| **WebGL shader computation**                           | Strong in theory but requires GPU; many privacy browsers disable WebGL                                                      |
+| **Single-round with better signals**                   | Fundamentally broken — any deterministic function of a nonce can be replayed without the original execution environment     |
 
 ### The Fundamental Impossibility
 
@@ -213,14 +213,14 @@ The security doesn't come from verifying individual rendering outputs. It comes 
 
 ## Threat Model
 
-| Attacker                            | Blocked?       | Mechanism                                                           |
-| ----------------------------------- | -------------- | ------------------------------------------------------------------- |
-| HTTP client (curl, Python requests) | **Blocked**    | No JavaScript — can't compute any stage                             |
-| Node.js / Deno                      | **Blocked**    | No Canvas 2D, OfflineAudioContext APIs                              |
-| JSDOM / happy-dom                   | **Blocked**    | Stubbed canvas returns zero pixels → trivial hash rejected          |
-| Signal replay                       | **Blocked**    | Each stage seed depends on HMAC(server_secret, ...) — can't reuse   |
-| Pre-computation                     | **Blocked**    | Stage N+1 params unknown until stage N hash submitted to server     |
-| Source code exposure                | **Blocked**    | Security from server secret + protocol structure, not obscurity     |
+| Attacker                            | Blocked?        | Mechanism                                                            |
+| ----------------------------------- | --------------- | -------------------------------------------------------------------- |
+| HTTP client (curl, Python requests) | **Blocked**     | No JavaScript — can't compute any stage                              |
+| Node.js / Deno                      | **Blocked**     | No Canvas 2D, OfflineAudioContext APIs                               |
+| JSDOM / happy-dom                   | **Blocked**     | Stubbed canvas returns zero pixels → trivial hash rejected           |
+| Signal replay                       | **Blocked**     | Each stage seed depends on HMAC(server_secret, ...) — can't reuse    |
+| Pre-computation                     | **Blocked**     | Stage N+1 params unknown until stage N hash submitted to server      |
+| Source code exposure                | **Blocked**     | Security from server secret + protocol structure, not obscurity      |
 | Headless Chrome (Puppeteer)         | **Cost raised** | Requires full browser instance per challenge, sequential round-trips |
 
 ### Headless Chrome Note

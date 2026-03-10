@@ -54,7 +54,7 @@ async function solveCanvasText(params) {
         width - parseInt(seed.slice(12, 14), 16),
         parseInt(seed.slice(14, 16), 16) % height,
         270,
-        70,
+        70
     );
     ctx.stroke();
 
