@@ -301,18 +301,6 @@ cd:s.colorDepth||0,pd:s.pixelDepth||0,dpr:window.devicePixelRatio||0,
 ot:s.orientation?.type||"",ie:s.isExtended}})();`;
 }
 
-function sectionDevTools(S) {
-    return `
-// DevTools detection
-(()=>{let bm=0,wd=window.outerWidth-window.innerWidth,hd=window.outerHeight-window.innerHeight;
-let oc=0,wo=false;
-if(wd>160||hd>160)bm|=1;
-try{if(window.Firebug?.chrome?.isInitialized)bm|=2}catch{}
-const t1=performance.now();for(let i=0;i<100;i++){console.log;console.clear}
-if(performance.now()-t1>100)bm|=4;
-${S}.dt={bm,wd,hd,oc,wo}})();`;
-}
-
 function sectionEnvironment(S) {
     return `
 // Environment, timezone, touch, document state
@@ -578,7 +566,6 @@ const ALL_SECTIONS = [
     sectionFeatures,
     sectionNavigator,
     sectionScreen,
-    sectionDevTools,
     sectionEnvironment,
     sectionBotDetection,
     sectionEngine,

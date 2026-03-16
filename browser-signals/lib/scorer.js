@@ -125,13 +125,6 @@ export function scoreSignals(signals, headers = {}) {
         if (s.dpr === 0) p(0.1, 'scr:zero devicePixelRatio');
     }
 
-    // ── dt: DevTools ──
-    if (signals.dt) {
-        // DevTools being open is informational, not a hard penalty
-        if (signals.dt.bm & 1) p(0.02, 'dt:devtools likely open');
-        if (signals.dt.oc > 2) p(0.03, 'dt:devtools opened >2x');
-    }
-
     // ── env: Environment/Timezone ──
     if (signals.env) {
         const e = signals.env;
